@@ -6,7 +6,7 @@
   <title>Dolfin Bakım Yönetimi</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx-js-style.min.js"></script>
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -849,7 +849,7 @@ function exportToExcel() {
     periyotLabel(row.bakim_periyodu),
   ]);
 
-  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const ws = XLSXStyle.utils.aoa_to_sheet([headers, ...rows]);
 
   // Sütun genişlikleri (wch = karakter genişliği)
   ws['!cols'] = [
@@ -861,47 +861,32 @@ function exportToExcel() {
   ];
 
   // Başlık satırı kalın + arka plan
-  const headerRange = XLSX.utils.decode_range(ws['!ref']);
-
-  const thinBorder = {
-    top:    { style: 'thin', color: { rgb: 'D1D5DB' } },
-    bottom: { style: 'thin', color: { rgb: 'D1D5DB' } },
-    left:   { style: 'thin', color: { rgb: 'D1D5DB' } },
-    right:  { style: 'thin', color: { rgb: 'D1D5DB' } },
-  };
-
-  // Tüm hücrelere ince kenarlık uygula
-  for (let R = headerRange.s.r; R <= headerRange.e.r; R++) {
-    for (let C = headerRange.s.c; C <= headerRange.e.c; C++) {
-      const cellAddr = XLSX.utils.encode_cell({ r: R, c: C });
-      if (!ws[cellAddr]) ws[cellAddr] = { t: 's', v: '' };
-      const isHeader = R === 0;
-      ws[cellAddr].s = isHeader
-        ? {
-            font:      { bold: true, color: { rgb: 'FFFFFF' } },
-            fill:      { fgColor: { rgb: 'B91C1C' } },
-            alignment: { horizontal: 'center', vertical: 'center', wrapText: false },
-            border:    { top: { style:'thin', color:{rgb:'991B1B'} }, bottom: { style:'thin', color:{rgb:'991B1B'} }, left: { style:'thin', color:{rgb:'991B1B'} }, right: { style:'thin', color:{rgb:'991B1B'} } },
-          }
-        : {
-            font:      { color: { rgb: '1E293B' } },
-            alignment: { vertical: 'center', wrapText: false },
-            border:    thinBorder,
-          };
-    }
-  }
-
-  // Satır yükseklikleri: başlık 28, veri satırları 25
+  const headerRange = XLSXStyle.utils.decode_range(ws['!ref']);
+  // Satır yükseklikleri
   ws['!rows'] = [{ hpt: 28 }];
   for (let R = 1; R <= headerRange.e.r; R++) ws['!rows'].push({ hpt: 25 });
 
-  const wb = XLSX.utils.book_new();
+  // AutoFilter
+  ws['!autofilter'] = { ref: XLSXStyle.utils.encode_range({ s:{r:0,c:0}, e:{r:0,c:4} }) };
+
+  for (let R = headerRange.s.r; R <= headerRange.e.r; R++) {
+    for (let C = headerRange.s.c; C <= headerRange.e.c; C++) {
+      const cellAddr = XLSXStyle.utils.encode_cell({ r: R, c: C });
+      if (!ws[cellAddr]) ws[cellAddr] = { t: 's', v: '' };
+      const isHeader = R === 0;
+      ws[cellAddr].s = isHeader
+        ? { font:{ bold:true, color:{rgb:'FFFFFF'}, sz:11 }, fill:{ patternType:'solid', fgColor:{rgb:'B91C1C'} }, alignment:{ horizontal:'center', vertical:'center' }, border:{ top:{style:'thin',color:{rgb:'991B1B'}}, bottom:{style:'thin',color:{rgb:'991B1B'}}, left:{style:'thin',color:{rgb:'991B1B'}}, right:{style:'thin',color:{rgb:'991B1B'}} } }
+        : { font:{ color:{rgb:'1E293B'}, sz:11 }, alignment:{ vertical:'center' }, border:{ top:{style:'thin',color:{rgb:'D1D5DB'}}, bottom:{style:'thin',color:{rgb:'D1D5DB'}}, left:{style:'thin',color:{rgb:'D1D5DB'}}, right:{style:'thin',color:{rgb:'D1D5DB'}} } };
+    }
+  }
+
+  const wb = XLSXStyle.utils.book_new();
   const sheetName = t('bakim.title').substring(0, 31);
-  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  XLSXStyle.utils.book_append_sheet(wb, ws, sheetName);
 
   const date = new Date();
   const dateStr = `${date.getFullYear()}${String(date.getMonth()+1).padStart(2,'0')}${String(date.getDate()).padStart(2,'0')}`;
-  XLSX.writeFile(wb, `Dolfin_Bakim_${dateStr}.xlsx`, { cellStyles: true });
+  XLSXStyle.writeFile(wb, `Dolfin_Bakim_${dateStr}.xlsx`);
   showToast('Excel dosyası indirildi.', 'success');
 }
 
