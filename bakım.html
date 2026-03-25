@@ -7,7 +7,6 @@
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
   <script src="https://unpkg.com/xlsx-js-style@1.2.0/dist/xlsx-js-style.min.js"></script>
-  <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -827,9 +826,9 @@ async function saveData() {
 // ===== Excel Export =====
 function exportToExcel() {
   try {
-  // xlsx-js-style global adı XLSXStyle, fallback XLSX
-  const XS = (typeof XLSXStyle !== 'undefined') ? XLSXStyle : (typeof XLSX !== 'undefined' ? XLSX : null);
-  const hasStyles = typeof XLSXStyle !== 'undefined';
+  // xlsx-js-style uses global XLSX with style support
+  const XS = (typeof XLSX !== 'undefined') ? XLSX : null;
+  const hasStyles = true;
   if (!XS) { showToast('Excel kütüphanesi yüklenemedi.', 'error'); return; }
 
   const data = getMergedData();
