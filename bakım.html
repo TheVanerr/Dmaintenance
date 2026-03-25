@@ -6,6 +6,7 @@
   <title>Dolfin Bakım Yönetimi</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -139,7 +140,7 @@
       </div>
       <div id="action-buttons" class="flex gap-3">
        <button onclick="saveData()" id="save-btn" class="flex items-center gap-2 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-md hover:shadow-lg transition-all" style="background: linear-gradient(135deg, #b91c1c, #dc2626);"> <i data-lucide="save" style="width:16px;height:16px;"></i> <span data-i18n="btn.save">Kaydet</span> </button>
-       <button class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-md hover:shadow-lg transition-all"> <i data-lucide="file-spreadsheet" style="width:16px;height:16px;"></i> <span data-i18n="btn.excel">Excel'e Dök</span> </button>
+       <button onclick="exportToExcel()" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-md hover:shadow-lg transition-all"> <i data-lucide="file-spreadsheet" style="width:16px;height:16px;"></i> <span data-i18n="btn.excel">Excel'e Dök</span> </button>
       </div>
      </div>
      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden fade-in fade-in-d1">
@@ -820,6 +821,68 @@ async function saveData() {
   btn.disabled = false;
   btn.innerHTML = '<i data-lucide="save" style="width:16px;height:16px;"></i> ' + t('btn.save');
   lucide.createIcons();
+}
+
+// ===== Excel Export =====
+function exportToExcel() {
+  const data = getMergedData();
+  if (!data.length) { showToast('Dışa aktarılacak kayıt yok.', 'error'); return; }
+
+  const headers = [
+    t('th.bakimKodu'),
+    t('th.standartOps'),
+    t('th.bakimAdi'),
+    t('th.yapilacak'),
+    t('th.periyod'),
+  ];
+
+  const periyotLabel = val => {
+    const key = { 'Günlük':'per.gunluk','Haftalık':'per.haftalik','Aylık':'per.aylik','3 Aylık':'per.3aylik','6 Aylık':'per.6aylik','1 Yıllık':'per.yillik' }[val];
+    return key ? t(key) : (val || '');
+  };
+
+  const rows = data.map(row => [
+    row.bakim_kodu || '',
+    (() => { const v = row.standart_opsiyonel || ''; return v === 'Standart' ? t('opt.standart') : v === 'Opsiyonel' ? t('opt.opsiyonel') : v; })(),
+    getFieldText(row, 'bakim_adi'),
+    getFieldText(row, 'yapilacak_islem'),
+    periyotLabel(row.bakim_periyodu),
+  ]);
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+  // Sütun genişlikleri (wch = karakter genişliği)
+  ws['!cols'] = [
+    { wch: 16 },  // Bakım Kodu
+    { wch: 22 },  // Standart/Opsiyonel
+    { wch: 38 },  // Bakım Adı
+    { wch: 58 },  // Yapılacak İşlem
+    { wch: 20 },  // Bakım Periyodu
+  ];
+
+  // Başlık satırı kalın + arka plan
+  const headerRange = XLSX.utils.decode_range(ws['!ref']);
+  for (let C = headerRange.s.c; C <= headerRange.e.c; C++) {
+    const cellAddr = XLSX.utils.encode_cell({ r: 0, c: C });
+    if (!ws[cellAddr]) continue;
+    ws[cellAddr].s = {
+      font: { bold: true, color: { rgb: '7F1D1D' } },
+      fill: { fgColor: { rgb: 'FECACA' } },
+      alignment: { horizontal: 'center', vertical: 'center', wrapText: false },
+      border: {
+        bottom: { style: 'medium', color: { rgb: 'FCA5A5' } },
+      }
+    };
+  }
+
+  const wb = XLSX.utils.book_new();
+  const sheetName = t('bakim.title').substring(0, 31);
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+  const date = new Date();
+  const dateStr = `${date.getFullYear()}${String(date.getMonth()+1).padStart(2,'0')}${String(date.getDate()).padStart(2,'0')}`;
+  XLSX.writeFile(wb, `Dolfin_Bakim_${dateStr}.xlsx`);
+  showToast('Excel dosyası indirildi.', 'success');
 }
 
 // ===== Init =====
