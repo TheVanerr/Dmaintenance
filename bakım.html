@@ -6,8 +6,7 @@
   <title>Dolfin Bakım Yönetimi</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx-js-style.min.js"></script>
-  <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://unpkg.com/xlsx-js-style@1.2.0/dist/xlsx-js-style.min.js"></script>
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -827,59 +826,62 @@ async function saveData() {
 // ===== Excel Export =====
 function exportToExcel() {
   try {
+  // xlsx-js-style global adı XLSXStyle, fallback XLSX
   const XS = (typeof XLSXStyle !== 'undefined') ? XLSXStyle : (typeof XLSX !== 'undefined' ? XLSX : null);
+  const hasStyles = typeof XLSXStyle !== 'undefined';
   if (!XS) { showToast('Excel kütüphanesi yüklenemedi.', 'error'); return; }
 
   const data = getMergedData();
   if (!data.length) { showToast('Dışa aktarılacak kayıt yok.', 'error'); return; }
 
   const headers = [
-    t('th.bakimKodu'),
-    t('th.standartOps'),
-    t('th.bakimAdi'),
-    t('th.yapilacak'),
-    t('th.periyod'),
+    t('th.bakimKodu'), t('th.standartOps'), t('th.bakimAdi'), t('th.yapilacak'), t('th.periyod'),
   ];
 
   const periyotLabel = val => {
-    const key = { 'Günlük':'per.gunluk','Haftalık':'per.haftalik','Aylık':'per.aylik','3 Aylık':'per.3aylik','6 Aylık':'per.6aylik','1 Yıllık':'per.yillik' }[val];
+    const key = {'Günlük':'per.gunluk','Haftalık':'per.haftalik','Aylık':'per.aylik','3 Aylık':'per.3aylik','6 Aylık':'per.6aylik','1 Yıllık':'per.yillik'}[val];
     return key ? t(key) : (val || '');
   };
 
   const rows = data.map(row => [
     row.bakim_kodu || '',
-    (() => { const v = row.standart_opsiyonel || ''; return v === 'Standart' ? t('opt.standart') : v === 'Opsiyonel' ? t('opt.opsiyonel') : v; })(),
+    (() => { const v = row.standart_opsiyonel||''; return v==='Standart'?t('opt.standart'):v==='Opsiyonel'?t('opt.opsiyonel'):v; })(),
     getFieldText(row, 'bakim_adi'),
     getFieldText(row, 'yapilacak_islem'),
     periyotLabel(row.bakim_periyodu),
   ]);
 
-  const ws = XS.utils.aoa_to_sheet([headers, ...rows]);
+  // Hücreleri tek tek oluştur (aoa yerine manual — stil için)
+  const ws = {};
+  const allData = [headers, ...rows];
+  const R_MAX = allData.length - 1;
+  const C_MAX = 4;
 
-  ws['!cols'] = [
-    { wch: 16 },
-    { wch: 22 },
-    { wch: 38 },
-    { wch: 58 },
-    { wch: 20 },
-  ];
+  const headerFill   = { patternType: 'solid', fgColor: { rgb: 'B91C1C' } };
+  const headerFont   = { bold: true, color: { rgb: 'FFFFFF' }, sz: 11, name: 'Calibri' };
+  const headerAlign  = { horizontal: 'center', vertical: 'center' };
+  const headerBorder = { top:{style:'thin',color:{rgb:'991B1B'}}, bottom:{style:'thin',color:{rgb:'991B1B'}}, left:{style:'thin',color:{rgb:'991B1B'}}, right:{style:'thin',color:{rgb:'991B1B'}} };
+  const dataFont     = { color: { rgb: '1E293B' }, sz: 11, name: 'Calibri' };
+  const dataAlign    = { vertical: 'center' };
+  const dataBorder   = { top:{style:'thin',color:{rgb:'D1D5DB'}}, bottom:{style:'thin',color:{rgb:'D1D5DB'}}, left:{style:'thin',color:{rgb:'D1D5DB'}}, right:{style:'thin',color:{rgb:'D1D5DB'}} };
 
-  const totalRows = rows.length;
-  ws['!rows'] = [{ hpt: 28 }];
-  for (let i = 0; i < totalRows; i++) ws['!rows'].push({ hpt: 25 });
-
-  ws['!autofilter'] = { ref: XS.utils.encode_range({ s:{r:0,c:0}, e:{r:0,c:4} }) };
-
-  const headerRange = XS.utils.decode_range(ws['!ref']);
-  for (let R = headerRange.s.r; R <= headerRange.e.r; R++) {
-    for (let C = headerRange.s.c; C <= headerRange.e.c; C++) {
+  for (let R = 0; R <= R_MAX; R++) {
+    for (let C = 0; C <= C_MAX; C++) {
       const addr = XS.utils.encode_cell({ r: R, c: C });
-      if (!ws[addr]) ws[addr] = { t: 's', v: '' };
-      ws[addr].s = R === 0
-        ? { font:{ bold:true, color:{rgb:'FFFFFF'}, sz:11 }, fill:{ patternType:'solid', fgColor:{rgb:'B91C1C'} }, alignment:{ horizontal:'center', vertical:'center' }, border:{ top:{style:'thin',color:{rgb:'991B1B'}}, bottom:{style:'thin',color:{rgb:'991B1B'}}, left:{style:'thin',color:{rgb:'991B1B'}}, right:{style:'thin',color:{rgb:'991B1B'}} } }
-        : { font:{ color:{rgb:'1E293B'}, sz:11 }, alignment:{ vertical:'center' }, border:{ top:{style:'thin',color:{rgb:'D1D5DB'}}, bottom:{style:'thin',color:{rgb:'D1D5DB'}}, left:{style:'thin',color:{rgb:'D1D5DB'}}, right:{style:'thin',color:{rgb:'D1D5DB'}} } };
+      const v = allData[R][C] ?? '';
+      ws[addr] = { v, t: 's' };
+      if (hasStyles) {
+        ws[addr].s = R === 0
+          ? { fill: headerFill, font: headerFont, alignment: headerAlign, border: headerBorder }
+          : { font: dataFont,   alignment: dataAlign,   border: dataBorder };
+      }
     }
   }
+
+  ws['!ref'] = XS.utils.encode_range({ s:{r:0,c:0}, e:{r:R_MAX,c:C_MAX} });
+  ws['!cols'] = [{ wch:16 }, { wch:22 }, { wch:38 }, { wch:58 }, { wch:20 }];
+  ws['!rows'] = [{ hpt:28 }, ...Array(R_MAX).fill({ hpt:25 })];
+  ws['!autofilter'] = { ref: XS.utils.encode_range({ s:{r:0,c:0}, e:{r:0,c:C_MAX} }) };
 
   const wb = XS.utils.book_new();
   XS.utils.book_append_sheet(wb, ws, t('bakim.title').substring(0, 31));
