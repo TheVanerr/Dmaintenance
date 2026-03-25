@@ -862,18 +862,38 @@ function exportToExcel() {
 
   // Başlık satırı kalın + arka plan
   const headerRange = XLSX.utils.decode_range(ws['!ref']);
-  for (let C = headerRange.s.c; C <= headerRange.e.c; C++) {
-    const cellAddr = XLSX.utils.encode_cell({ r: 0, c: C });
-    if (!ws[cellAddr]) continue;
-    ws[cellAddr].s = {
-      font: { bold: true, color: { rgb: '7F1D1D' } },
-      fill: { fgColor: { rgb: 'FECACA' } },
-      alignment: { horizontal: 'center', vertical: 'center', wrapText: false },
-      border: {
-        bottom: { style: 'medium', color: { rgb: 'FCA5A5' } },
-      }
-    };
+
+  const thinBorder = {
+    top:    { style: 'thin', color: { rgb: 'D1D5DB' } },
+    bottom: { style: 'thin', color: { rgb: 'D1D5DB' } },
+    left:   { style: 'thin', color: { rgb: 'D1D5DB' } },
+    right:  { style: 'thin', color: { rgb: 'D1D5DB' } },
+  };
+
+  // Tüm hücrelere ince kenarlık uygula
+  for (let R = headerRange.s.r; R <= headerRange.e.r; R++) {
+    for (let C = headerRange.s.c; C <= headerRange.e.c; C++) {
+      const cellAddr = XLSX.utils.encode_cell({ r: R, c: C });
+      if (!ws[cellAddr]) ws[cellAddr] = { t: 's', v: '' };
+      const isHeader = R === 0;
+      ws[cellAddr].s = isHeader
+        ? {
+            font:      { bold: true, color: { rgb: 'FFFFFF' } },
+            fill:      { fgColor: { rgb: 'B91C1C' } },
+            alignment: { horizontal: 'center', vertical: 'center', wrapText: false },
+            border:    { top: { style:'thin', color:{rgb:'991B1B'} }, bottom: { style:'thin', color:{rgb:'991B1B'} }, left: { style:'thin', color:{rgb:'991B1B'} }, right: { style:'thin', color:{rgb:'991B1B'} } },
+          }
+        : {
+            font:      { color: { rgb: '1E293B' } },
+            alignment: { vertical: 'center', wrapText: false },
+            border:    thinBorder,
+          };
+    }
   }
+
+  // Satır yükseklikleri: başlık 28, veri satırları 25
+  ws['!rows'] = [{ hpt: 28 }];
+  for (let R = 1; R <= headerRange.e.r; R++) ws['!rows'].push({ hpt: 25 });
 
   const wb = XLSX.utils.book_new();
   const sheetName = t('bakim.title').substring(0, 31);
@@ -881,7 +901,7 @@ function exportToExcel() {
 
   const date = new Date();
   const dateStr = `${date.getFullYear()}${String(date.getMonth()+1).padStart(2,'0')}${String(date.getDate()).padStart(2,'0')}`;
-  XLSX.writeFile(wb, `Dolfin_Bakim_${dateStr}.xlsx`);
+  XLSX.writeFile(wb, `Dolfin_Bakim_${dateStr}.xlsx`, { cellStyles: true });
   showToast('Excel dosyası indirildi.', 'success');
 }
 
