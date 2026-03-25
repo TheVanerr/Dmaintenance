@@ -825,6 +825,10 @@ async function saveData() {
 
 // ===== Excel Export =====
 function exportToExcel() {
+  try {
+  const XS = (typeof XLSXStyle !== 'undefined') ? XLSXStyle : (typeof XLSX !== 'undefined' ? XLSX : null);
+  if (!XS) { showToast('Excel kütüphanesi yüklenemedi.', 'error'); return; }
+
   const data = getMergedData();
   if (!data.length) { showToast('Dışa aktarılacak kayıt yok.', 'error'); return; }
 
@@ -849,45 +853,41 @@ function exportToExcel() {
     periyotLabel(row.bakim_periyodu),
   ]);
 
-  const ws = XLSXStyle.utils.aoa_to_sheet([headers, ...rows]);
+  const ws = XS.utils.aoa_to_sheet([headers, ...rows]);
 
-  // Sütun genişlikleri (wch = karakter genişliği)
   ws['!cols'] = [
-    { wch: 16 },  // Bakım Kodu
-    { wch: 22 },  // Standart/Opsiyonel
-    { wch: 38 },  // Bakım Adı
-    { wch: 58 },  // Yapılacak İşlem
-    { wch: 20 },  // Bakım Periyodu
+    { wch: 16 },
+    { wch: 22 },
+    { wch: 38 },
+    { wch: 58 },
+    { wch: 20 },
   ];
 
-  // Başlık satırı kalın + arka plan
-  const headerRange = XLSXStyle.utils.decode_range(ws['!ref']);
-  // Satır yükseklikleri
+  const totalRows = rows.length;
   ws['!rows'] = [{ hpt: 28 }];
-  for (let R = 1; R <= headerRange.e.r; R++) ws['!rows'].push({ hpt: 25 });
+  for (let i = 0; i < totalRows; i++) ws['!rows'].push({ hpt: 25 });
 
-  // AutoFilter
-  ws['!autofilter'] = { ref: XLSXStyle.utils.encode_range({ s:{r:0,c:0}, e:{r:0,c:4} }) };
+  ws['!autofilter'] = { ref: XS.utils.encode_range({ s:{r:0,c:0}, e:{r:0,c:4} }) };
 
+  const headerRange = XS.utils.decode_range(ws['!ref']);
   for (let R = headerRange.s.r; R <= headerRange.e.r; R++) {
     for (let C = headerRange.s.c; C <= headerRange.e.c; C++) {
-      const cellAddr = XLSXStyle.utils.encode_cell({ r: R, c: C });
-      if (!ws[cellAddr]) ws[cellAddr] = { t: 's', v: '' };
-      const isHeader = R === 0;
-      ws[cellAddr].s = isHeader
+      const addr = XS.utils.encode_cell({ r: R, c: C });
+      if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+      ws[addr].s = R === 0
         ? { font:{ bold:true, color:{rgb:'FFFFFF'}, sz:11 }, fill:{ patternType:'solid', fgColor:{rgb:'B91C1C'} }, alignment:{ horizontal:'center', vertical:'center' }, border:{ top:{style:'thin',color:{rgb:'991B1B'}}, bottom:{style:'thin',color:{rgb:'991B1B'}}, left:{style:'thin',color:{rgb:'991B1B'}}, right:{style:'thin',color:{rgb:'991B1B'}} } }
         : { font:{ color:{rgb:'1E293B'}, sz:11 }, alignment:{ vertical:'center' }, border:{ top:{style:'thin',color:{rgb:'D1D5DB'}}, bottom:{style:'thin',color:{rgb:'D1D5DB'}}, left:{style:'thin',color:{rgb:'D1D5DB'}}, right:{style:'thin',color:{rgb:'D1D5DB'}} } };
     }
   }
 
-  const wb = XLSXStyle.utils.book_new();
-  const sheetName = t('bakim.title').substring(0, 31);
-  XLSXStyle.utils.book_append_sheet(wb, ws, sheetName);
+  const wb = XS.utils.book_new();
+  XS.utils.book_append_sheet(wb, ws, t('bakim.title').substring(0, 31));
 
-  const date = new Date();
-  const dateStr = `${date.getFullYear()}${String(date.getMonth()+1).padStart(2,'0')}${String(date.getDate()).padStart(2,'0')}`;
-  XLSXStyle.writeFile(wb, `Dolfin_Bakim_${dateStr}.xlsx`);
+  const d = new Date();
+  const ds = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  XS.writeFile(wb, `Dolfin_Bakim_${ds}.xlsx`);
   showToast('Excel dosyası indirildi.', 'success');
+  } catch(e) { showToast('Excel hatası: ' + e.message, 'error'); console.error(e); }
 }
 
 // ===== Init =====
