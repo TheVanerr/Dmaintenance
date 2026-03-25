@@ -1,0 +1,784 @@
+<!doctype html>
+<html lang="tr" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dolfin Bakım Yönetimi</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+  <style>
+  html, body { height: 100%; margin: 0; }
+  * { font-family: 'Outfit', sans-serif; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .table-cell-input {
+    background: transparent; border: none; outline: none; width: 100%; padding: 4px 0;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #1e293b;
+  }
+  .table-cell-input:focus { background: #fff1f2; border-radius: 4px; }
+  .table-cell-input:disabled { color: #334155; background: transparent; }
+  .table-cell-select {
+    background: transparent; border: none; outline: none; width: 100%; padding: 4px 0;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #1e293b; cursor: pointer;
+  }
+  .table-cell-select:focus { background: #fff1f2; border-radius: 4px; }
+  .nav-link { position: relative; padding: 8px 16px; border-radius: 8px; transition: all 0.2s; }
+  .nav-link:hover { background: rgba(255,255,255,0.15); }
+  .nav-link.active { background: rgba(255,255,255,0.2); font-weight: 600; }
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; padding: 14px 24px; border-radius: 12px;
+    color: white; font-weight: 500; z-index: 1000; transform: translateY(100px); opacity: 0;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { background: #16a34a; }
+  .toast.error { background: #dc2626; }
+  .toast.info { background: #b91c1c; }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .fade-in { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  .fade-in-d1 { animation-delay: 0.1s; opacity: 0; }
+  .fade-in-d2 { animation-delay: 0.2s; opacity: 0; }
+  .fade-in-d3 { animation-delay: 0.3s; opacity: 0; }
+  table th { position: sticky; top: 0; z-index: 5; }
+  .login-modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .delete-btn { opacity: 0; transition: opacity 0.2s; }
+  tr:hover .delete-btn { opacity: 1; }
+  .lang-dropdown { position:absolute; right:0; top:calc(100% + 6px); background:#fff; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,0.15); border:1px solid #e5e7eb; overflow:hidden; min-width:150px; z-index:200; }
+  .lang-option { display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer; font-size:14px; color:#374151; transition:background 0.15s; white-space:nowrap; width:100%; border:none; background:transparent; text-align:left; }
+  .lang-option:hover { background:#fef2f2; }
+  .lang-option.active { background:#fff1f1; font-weight:600; color:#b91c1c; }
+</style>
+  <style>body { box-sizing: border-box; }</style>
+ </head>
+ <body class="h-full bg-gray-50">
+  <div id="app" class="h-full w-full flex flex-col overflow-auto" style="background: #fafafa;"><!-- Navbar -->
+   <nav id="navbar" style="background: linear-gradient(135deg, #b91c1c, #dc2626, #991b1b);" class="w-full shadow-lg">
+    <div class="max-w-screen-2xl mx-auto px-8 py-3 flex items-center justify-between">
+     <div class="flex items-center gap-8">
+      <div class="flex flex-col leading-tight"><span id="brand-name" class="text-white font-black text-2xl tracking-tight">Dolfin</span> <span id="brand-subtitle" data-i18n="brand.subtitle" class="text-red-200 text-xs font-medium tracking-wider uppercase">Endüstriyel Yıkama Makineleri</span>
+      </div>
+      <div class="hidden md:flex items-center gap-1 ml-4">
+       <button class="nav-link active text-white text-sm" data-page="bakim" onclick="navigateTo('bakim')"> <i data-lucide="wrench" style="width:15px;height:15px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> <span data-i18n="nav.bakim">Bakım</span> </button>
+       <button class="nav-link text-white/80 text-sm" data-page="makine-bakim" onclick="navigateTo('makine-bakim')"> <i data-lucide="clipboard-list" style="width:15px;height:15px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> <span data-i18n="nav.makineBakim">Makine Bakım</span> </button>
+       <button class="nav-link text-white/80 text-sm" data-page="ayarlar"> <i data-lucide="settings" style="width:15px;height:15px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> <span data-i18n="nav.ayarlar">Ayarlar</span> </button>
+      </div>
+     </div>
+     <div class="flex items-center gap-3">
+      <div class="relative" id="lang-switcher">
+       <button onclick="toggleLangDropdown()" class="flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all">
+        <span id="current-flag" style="font-size:20px;line-height:1;">&#x1F1F9;&#x1F1F7;</span>
+        <span id="current-lang-code" class="text-xs font-bold tracking-wider">TR</span>
+        <i data-lucide="chevron-down" style="width:14px;height:14px;"></i>
+       </button>
+       <div id="lang-dropdown" class="lang-dropdown" style="display:none;">
+        <button class="lang-option active" onclick="setLang('TR')"><span style="font-size:18px;">&#x1F1F9;&#x1F1F7;</span> Türkçe</button>
+        <button class="lang-option" onclick="setLang('EN')"><span style="font-size:18px;">&#x1F1EC;&#x1F1E7;</span> English</button>
+        <button class="lang-option" onclick="setLang('DE')"><span style="font-size:18px;">&#x1F1E9;&#x1F1EA;</span> Deutsch</button>
+       </div>
+      </div>
+      <div style="display:none;"><button id="login-btn" onclick="openLoginModal()" class="flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all"> <i data-lucide="log-in" style="width:16px;height:16px;"></i> <span id="login-btn-text">Kullanıcı Girişi</span> </button>
+      </div>
+     </div>
+    </div>
+   </nav><!-- Main Content -->
+   <main class="flex-1 w-full max-w-screen-2xl mx-auto px-8 py-6">
+
+    <!-- ===== BAKIM SAYFASI ===== -->
+    <div id="page-bakim">
+     <div class="flex items-center justify-between mb-5 fade-in">
+      <div>
+       <h1 id="page-title" class="text-2xl font-bold text-gray-800" data-i18n="bakim.title">Bakım Tablosu</h1>
+       <p class="text-gray-400 text-sm mt-1" data-i18n="bakim.subtitle">Periyodik bakım planı ve işlem detayları</p>
+      </div>
+      <div id="action-buttons" class="flex gap-3">
+       <button onclick="saveData()" id="save-btn" class="flex items-center gap-2 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-md hover:shadow-lg transition-all" style="background: linear-gradient(135deg, #b91c1c, #dc2626);"> <i data-lucide="save" style="width:16px;height:16px;"></i> <span data-i18n="btn.save">Kaydet</span> </button>
+       <button class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-md hover:shadow-lg transition-all"> <i data-lucide="file-spreadsheet" style="width:16px;height:16px;"></i> <span data-i18n="btn.excel">Excel'e Dök</span> </button>
+      </div>
+     </div>
+     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden fade-in fade-in-d1">
+      <div class="overflow-x-auto">
+       <table class="w-full">
+        <thead>
+         <tr style="background: linear-gradient(135deg, #fecaca, #fde2e2);">
+          <th class="text-left px-4 py-3 text-xs font-bold text-red-900 uppercase tracking-wider border-b-2 border-red-200" style="width:40px;">#</th>
+          <th class="text-left px-4 py-3 text-xs font-bold text-red-900 uppercase tracking-wider border-b-2 border-red-200" style="width:130px;" data-i18n="th.bakimKodu">Bakım Kodu</th>
+          <th class="text-left px-4 py-3 text-xs font-bold text-red-900 uppercase tracking-wider border-b-2 border-red-200" style="width:155px;" data-i18n="th.standartOps">Standart/Opsiyonel</th>
+          <th class="text-left px-4 py-3 text-xs font-bold text-red-900 uppercase tracking-wider border-b-2 border-red-200" style="width:170px;" data-i18n="th.bakimAdi">Bakım Adı</th>
+          <th class="text-left px-4 py-3 text-xs font-bold text-red-900 uppercase tracking-wider border-b-2 border-red-200" data-i18n="th.yapilacak">Yapılacak İşlem</th>
+          <th class="text-left px-4 py-3 text-xs font-bold text-red-900 uppercase tracking-wider border-b-2 border-red-200" style="width:140px;" data-i18n="th.periyod">Bakım Periyodu</th>
+          <th class="border-b-2 border-red-200" style="width:40px;"></th>
+         </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+       </table>
+      </div>
+     </div>
+     <div id="add-row-area" class="mt-4 fade-in fade-in-d2"><button onclick="addRow()" class="flex items-center gap-2 border-2 border-dashed border-red-300 hover:border-red-500 text-red-600 hover:text-red-700 px-5 py-3 rounded-xl text-sm font-semibold transition-all w-full justify-center hover:bg-red-50"> <i data-lucide="plus-circle" style="width:18px;height:18px;"></i> <span data-i18n="btn.addRow">Satır Ekle</span> </button>
+     </div>
+     <div id="record-count" class="mt-3 text-right text-xs text-gray-400 fade-in fade-in-d3"></div>
+    </div>
+
+    <!-- ===== MAKİNE BAKIM SAYFASI ===== -->
+    <div id="page-makine-bakim" style="display:none;">
+     <div class="flex items-center justify-between mb-5 fade-in">
+      <div>
+       <h1 class="text-2xl font-bold text-gray-800" data-i18n="mb.title">Makine Bakım Raporu</h1>
+       <p class="text-gray-400 text-sm mt-1" data-i18n="mb.subtitle">Makine modeline göre bakım listesi oluşturun</p>
+      </div>
+     </div>
+
+     <!-- Adım 1: Model Seçici -->
+     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 fade-in fade-in-d1">
+      <div class="flex items-center gap-2 mb-4">
+       <div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:#b91c1c;">1</div>
+       <span class="font-semibold text-gray-700" data-i18n="mb.step1">Makine Modelini Seçin</span>
+      </div>
+      <div class="relative max-w-md">
+       <select id="makine-model-select" onchange="onMakineModelChange()" class="w-full appearance-none bg-white border-2 border-gray-200 hover:border-red-300 focus:border-red-500 focus:outline-none rounded-xl px-4 py-3 pr-10 text-gray-700 font-medium text-sm transition-all cursor-pointer shadow-sm">
+        <option value="" data-i18n="mb.selectPlaceholder">-- Model Seçiniz --</option>
+        <optgroup label="LYM Serisi"><option>LYM 950</option><option>LYM 1150</option><option>LYM 1350</option><option>LYM 1500</option></optgroup>
+        <optgroup label="VDL Serisi"><option>VDL 2500 1B</option><option>VDL 3500 2B</option><option>VDL 4250 2B</option><option>VDL 5500 2B</option><option>VDL 6500 2B</option></optgroup>
+        <optgroup label="KBN 1B Serisi"><option>KBN 1B 1650</option><option>KBN 1B 1850</option><option>KBN 1B 2050</option></optgroup>
+        <optgroup label="KBN 2B Serisi"><option>KBN 2B 1650</option><option>KBN 2B 1850</option><option>KBN 2B 2050</option></optgroup>
+        <optgroup label="RTS Serisi"><option>RTS 346 2B</option><option>RTS 346 4B</option></optgroup>
+       </select>
+       <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+        <i data-lucide="chevron-down" style="width:18px;height:18px;color:#6b7280;"></i>
+       </div>
+      </div>
+     </div>
+
+     <!-- Adım 2: Opsiyonlar -->
+     <div id="makine-opsiyonlar-section" style="display:none;" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-4 fade-in">
+      <div class="flex items-center gap-2 mb-4">
+       <div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:#b91c1c;">2</div>
+       <span class="font-semibold text-gray-700" data-i18n="mb.step2">Makine üzerindeki opsiyonları işaretle</span>
+       <span class="ml-auto text-xs text-gray-400" id="opsiyon-sec-info"></span>
+      </div>
+      <div id="makine-opsiyonlar-grid" class="grid grid-cols-2 md:grid-cols-3 gap-3"></div>
+      <div class="mt-6">
+       <button onclick="generateBakimListesi()" class="flex items-center gap-2 text-white px-6 py-3 rounded-xl text-sm font-semibold shadow-md hover:shadow-lg transition-all w-full justify-center" style="background: linear-gradient(135deg, #b91c1c, #dc2626);">
+        <i data-lucide="clipboard-list" style="width:18px;height:18px;"></i>
+        <span data-i18n="mb.generateBtn">Bakım Listesi Çıkar</span>
+       </button>
+      </div>
+     </div>
+
+     <!-- Adım 3: Bakım Tablosu -->
+     <div id="makine-bakim-result" style="display:none;" class="mt-4 fade-in">
+      <div class="flex items-center gap-2 mb-3">
+       <div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:#b91c1c;">3</div>
+       <span class="font-semibold text-gray-700" data-i18n="mb.step3">Bakım Listesi</span>
+       <span id="result-model-badge" class="ml-2 px-3 py-1 rounded-full text-xs font-bold text-white mono" style="background:#b91c1c;"></span>
+       <span id="result-count" class="text-xs text-gray-400 ml-1"></span>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+       <div class="overflow-x-auto">
+        <table class="w-full">
+         <thead>
+          <tr style="background: linear-gradient(135deg, #fecaca, #fde2e2);">
+           <th class="text-left px-4 py-3 text-xs font-bold text-red-900 uppercase tracking-wider border-b-2 border-red-200" style="width:36px;">#</th>
+           <th class="text-left px-4 py-3 text-xs font-bold text-red-900 uppercase tracking-wider border-b-2 border-red-200" data-i18n="mb.resultThKod">Bakım Kodu</th>
+           <th class="text-left px-4 py-3 text-xs font-bold text-red-900 uppercase tracking-wider border-b-2 border-red-200" data-i18n="mb.resultThAdi">Bakım Adı</th>
+           <th class="text-left px-4 py-3 text-xs font-bold text-red-900 uppercase tracking-wider border-b-2 border-red-200" data-i18n="mb.resultThIslem">Yapılacak İşlem</th>
+           <th class="text-left px-4 py-3 text-xs font-bold text-red-900 uppercase tracking-wider border-b-2 border-red-200" data-i18n="mb.resultThPeriyot">Periyot</th>
+           <th class="text-left px-4 py-3 text-xs font-bold text-red-900 uppercase tracking-wider border-b-2 border-red-200" data-i18n="mb.resultThKaynak">Kaynak</th>
+          </tr>
+         </thead>
+         <tbody id="makine-bakim-tbody"></tbody>
+        </table>
+       </div>
+      </div>
+     </div>
+
+    </div>
+
+   </main><!-- Login Modal -->
+   <div id="login-modal" class="login-modal-backdrop" style="display:none;">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-4" onclick="event.stopPropagation()">
+     <div class="text-center mb-6">
+      <div class="w-14 h-14 rounded-full mx-auto mb-3 flex items-center justify-center" style="background: linear-gradient(135deg, #b91c1c, #dc2626);"><i data-lucide="user" style="width:28px;height:28px;color:white;"></i>
+      </div>
+      <h2 class="text-xl font-bold text-gray-800">Kullanıcı Girişi</h2>
+      <p class="text-gray-400 text-sm mt-1">Devam etmek için giriş yapın</p>
+     </div>
+     <button onclick="signInWithGoogle()" class="w-full flex items-center justify-center gap-3 border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 text-gray-700 py-3 rounded-lg font-semibold text-sm transition-all shadow-sm hover:shadow-md">
+       <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:20px;height:20px;" alt="Google">
+       Google ile Giriş Yap
+     </button>
+     <button onclick="closeLoginModal()" class="mt-3 w-full text-gray-400 hover:text-gray-600 text-sm py-2 transition-colors">İptal</button>
+    </div>
+   </div><!-- Toast -->
+   <div id="toast" class="toast"></div>
+  </div>
+  <script>
+// ===== i18n =====
+let currentLang = 'TR';
+const flagMap = { TR:'&#x1F1F9;&#x1F1F7;', EN:'&#x1F1EC;&#x1F1E7;', DE:'&#x1F1E9;&#x1F1EA;' };
+const translations = {
+  TR: {
+    'brand.subtitle':'Endüstriyel Yıkama Makineleri',
+    'nav.bakim':'Bakım','nav.makineBakim':'Makine Bakım','nav.ayarlar':'Ayarlar',
+    'bakim.title':'Bakım Tablosu','bakim.subtitle':'Periyodik bakım planı ve işlem detayları',
+    'btn.save':'Kaydet','btn.excel':"Excel'e Dök",'btn.addRow':'Satır Ekle',
+    'th.bakimKodu':'Bakım Kodu','th.standartOps':'Standart/Opsiyonel','th.bakimAdi':'Bakım Adı','th.yapilacak':'Yapılacak İşlem','th.periyod':'Bakım Periyodu',
+    'opt.standart':'Standart','opt.opsiyonel':'Opsiyonel',
+    'per.gunluk':'Günlük','per.haftalik':'Haftalık','per.aylik':'Aylık','per.3aylik':'3 Aylık','per.6aylik':'6 Aylık','per.yillik':'1 Yıllık',
+    'mb.title':'Makine Bakım Raporu','mb.subtitle':'Makine modeline göre bakım listesi oluşturun',
+    'mb.step1':'Makine Modelini Seçin','mb.selectPlaceholder':'-- Model Seçiniz --',
+    'mb.step2':'Makine üzerindeki opsiyonları işaretle','mb.opsiyonMevcut':'opsiyon mevcut',
+    'mb.generateBtn':'Bakım Listesi Çıkar','mb.step3':'Bakım Listesi',
+    'mb.resultThKod':'Bakım Kodu','mb.resultThAdi':'Bakım Adı','mb.resultThIslem':'Yapılacak İşlem','mb.resultThPeriyot':'Periyot','mb.resultThKaynak':'Kaynak',
+    'recordCount':'Toplam {n} kayıt','resultCount':'{n} bakım maddesi',
+    'toast.saved':'Tüm değişiklikler kaydedildi!','toast.saveError':'Kayıt hatası: ',
+    'toast.rowAdded':'Yeni satır eklendi. Kaydetmeyi unutmayın!','toast.rowDeleted':'Satır silindi.',
+    'toast.deleteError':'Silme hatası: ','toast.maxRows':'Maksimum kayıt sınırına ulaşıldı!',
+    'toast.noOpsiyon':'Opsiyon seçilmedi, sadece standart maddeler gösteriliyor.',
+    'saving':'Kaydediliyor...','kaynak.standart':'Standart',
+  },
+  EN: {
+    'brand.subtitle':'Industrial Washing Machines',
+    'nav.bakim':'Maintenance','nav.makineBakim':'Machine Maintenance','nav.ayarlar':'Settings',
+    'bakim.title':'Maintenance Table','bakim.subtitle':'Periodic maintenance plan and process details',
+    'btn.save':'Save','btn.excel':'Export to Excel','btn.addRow':'Add Row',
+    'th.bakimKodu':'Maintenance Code','th.standartOps':'Standard/Optional','th.bakimAdi':'Maintenance Name','th.yapilacak':'Action Required','th.periyod':'Maintenance Period',
+    'opt.standart':'Standard','opt.opsiyonel':'Optional',
+    'per.gunluk':'Daily','per.haftalik':'Weekly','per.aylik':'Monthly','per.3aylik':'Every 3 Months','per.6aylik':'Every 6 Months','per.yillik':'Annual',
+    'mb.title':'Machine Maintenance Report','mb.subtitle':'Create maintenance list by machine model',
+    'mb.step1':'Select Machine Model','mb.selectPlaceholder':'-- Select Model --',
+    'mb.step2':'Mark options on the machine','mb.opsiyonMevcut':'options available',
+    'mb.generateBtn':'Generate Maintenance List','mb.step3':'Maintenance List',
+    'mb.resultThKod':'Maintenance Code','mb.resultThAdi':'Maintenance Name','mb.resultThIslem':'Action Required','mb.resultThPeriyot':'Period','mb.resultThKaynak':'Source',
+    'recordCount':'Total {n} records','resultCount':'{n} maintenance items',
+    'toast.saved':'All changes saved!','toast.saveError':'Save error: ',
+    'toast.rowAdded':"New row added. Don't forget to save!",'toast.rowDeleted':'Row deleted.',
+    'toast.deleteError':'Delete error: ','toast.maxRows':'Maximum record limit reached!',
+    'toast.noOpsiyon':'No option selected, showing standard items only.',
+    'saving':'Saving...','kaynak.standart':'Standard',
+  },
+  DE: {
+    'brand.subtitle':'Industrielle Waschmaschinen',
+    'nav.bakim':'Wartung','nav.makineBakim':'Maschinenwartung','nav.ayarlar':'Einstellungen',
+    'bakim.title':'Wartungstabelle','bakim.subtitle':'Periodischer Wartungsplan und Prozessdetails',
+    'btn.save':'Speichern','btn.excel':'Nach Excel exportieren','btn.addRow':'Zeile hinzufügen',
+    'th.bakimKodu':'Wartungscode','th.standartOps':'Standard/Optional','th.bakimAdi':'Wartungsname','th.yapilacak':'Durchzuführende Arbeit','th.periyod':'Wartungsintervall',
+    'opt.standart':'Standard','opt.opsiyonel':'Optional',
+    'per.gunluk':'Täglich','per.haftalik':'Wöchentlich','per.aylik':'Monatlich','per.3aylik':'Alle 3 Monate','per.6aylik':'Alle 6 Monate','per.yillik':'Jährlich',
+    'mb.title':'Maschinenwartungsbericht','mb.subtitle':'Wartungsliste nach Maschinenmodell erstellen',
+    'mb.step1':'Maschinenmodell auswählen','mb.selectPlaceholder':'-- Modell auswählen --',
+    'mb.step2':'Optionen an der Maschine markieren','mb.opsiyonMevcut':'Optionen verfügbar',
+    'mb.generateBtn':'Wartungsliste erstellen','mb.step3':'Wartungsliste',
+    'mb.resultThKod':'Wartungscode','mb.resultThAdi':'Wartungsname','mb.resultThIslem':'Durchzuführende Arbeit','mb.resultThPeriyot':'Intervall','mb.resultThKaynak':'Quelle',
+    'recordCount':'Gesamt {n} Einträge','resultCount':'{n} Wartungspunkte',
+    'toast.saved':'Alle Änderungen gespeichert!','toast.saveError':'Speicherfehler: ',
+    'toast.rowAdded':'Neue Zeile hinzugefügt. Nicht vergessen zu speichern!','toast.rowDeleted':'Zeile gelöscht.',
+    'toast.deleteError':'Löschfehler: ','toast.maxRows':'Maximale Datensatzgrenze erreicht!',
+    'toast.noOpsiyon':'Keine Option ausgewählt, nur Standardeinträge werden angezeigt.',
+    'saving':'Wird gespeichert...','kaynak.standart':'Standard',
+  }
+};
+function t(key, vars) {
+  let str = (translations[currentLang] || translations.TR)[key] || key;
+  if (vars) Object.keys(vars).forEach(k => { str = str.replace('{' + k + '}', vars[k]); });
+  return str;
+}
+const periyotKeys = { 'Günlük':'per.gunluk','Haftalık':'per.haftalik','Aylık':'per.aylik','3 Aylık':'per.3aylik','6 Aylık':'per.6aylik','1 Yıllık':'per.yillik' };
+
+// ===== Translation =====
+const langCodeMap = { TR: 'tr', EN: 'en', DE: 'de' };
+
+async function translateText(text, fromLang, toLang) {
+  if (!text || !text.trim() || fromLang === toLang) return text;
+  try {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langCodeMap[fromLang]}|${langCodeMap[toLang]}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const out = data?.responseData?.translatedText;
+    return (out && out !== 'QUERY LENGTH LIMIT EXCEEDED') ? out : text;
+  } catch(e) { return text; }
+}
+
+async function translateToAll(text, sourceLang) {
+  const result = { TR: '', EN: '', DE: '' };
+  result[sourceLang] = text;
+  const others = ['TR','EN','DE'].filter(l => l !== sourceLang);
+  const results = await Promise.all(others.map(l => translateText(text, sourceLang, l)));
+  others.forEach((l, i) => { result[l] = results[i]; });
+  return result;
+}
+
+function getFieldText(row, field) {
+  const val = row[field];
+  if (val && typeof val === 'object') return val[currentLang] || val.TR || '';
+  return val || '';
+}
+
+function applyLang() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.getAttribute('data-i18n'));
+  });
+  // Update flag button
+  document.getElementById('current-flag').innerHTML = flagMap[currentLang];
+  document.getElementById('current-lang-code').textContent = currentLang;
+  // Update active state of dropdown options
+  document.querySelectorAll('.lang-option').forEach(btn => {
+    const lang = btn.getAttribute('onclick').match(/'(\w+)'/)[1];
+    btn.classList.toggle('active', lang === currentLang);
+  });
+  // Re-render table with new lang
+  renderTable();
+}
+
+function toggleLangDropdown() {
+  const dd = document.getElementById('lang-dropdown');
+  dd.style.display = dd.style.display === 'none' ? '' : 'none';
+}
+function setLang(lang) {
+  currentLang = lang;
+  document.getElementById('lang-dropdown').style.display = 'none';
+  applyLang();
+}
+document.addEventListener('click', e => {
+  const sw = document.getElementById('lang-switcher');
+  if (sw && !sw.contains(e.target)) document.getElementById('lang-dropdown').style.display = 'none';
+});
+// ===== Firebase Init =====
+const firebaseConfig = {
+  apiKey: "AIzaSyD4l0gVS57Ehald5PcLwSOGR_ctn8sMOUs",
+  authDomain: "dmaintenance-dbd76.firebaseapp.com",
+  projectId: "dmaintenance-dbd76",
+  storageBucket: "dmaintenance-dbd76.firebasestorage.app",
+  messagingSenderId: "536646820808",
+  appId: "1:536646820808:web:5f0394e254a7f6af3816fd"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+// ===== State =====
+let isLoggedIn = false;
+let currentUser = null;
+let allRecords = [];
+let newRowIds = new Set();
+let nextRowIndex = 11;
+let unsubscribeFirestore = null;
+
+// ===== Reference Data (10 default rows) =====
+const defaultRows = [
+  { row_index: 1, bakim_kodu: 'BKM-001', standart_opsiyonel: 'Standart', bakim_adi: 'Pompa Kontrolü', yapilacak_islem: 'Pompa basınç ve sızıntı kontrolü', bakim_periyodu: 'Haftalık' },
+  { row_index: 2, bakim_kodu: 'BKM-002', standart_opsiyonel: 'Standart', bakim_adi: 'Filtre Temizliği', yapilacak_islem: 'Ana filtre sökülüp temizlenecek', bakim_periyodu: 'Günlük' },
+  { row_index: 3, bakim_kodu: 'BKM-003', standart_opsiyonel: 'Opsiyonel', bakim_adi: 'Nozul Kontrolü', yapilacak_islem: 'Nozul tıkanıklık ve sprey açısı kontrolü', bakim_periyodu: 'Aylık' },
+  { row_index: 4, bakim_kodu: 'BKM-004', standart_opsiyonel: 'Standart', bakim_adi: 'Isıtıcı Kontrolü', yapilacak_islem: 'Rezistans ve termostat test edilecek', bakim_periyodu: 'Aylık' },
+  { row_index: 5, bakim_kodu: 'BKM-005', standart_opsiyonel: 'Standart', bakim_adi: 'Konveyör Yağlama', yapilacak_islem: 'Zincir ve rulman yağlama', bakim_periyodu: 'Haftalık' },
+  { row_index: 6, bakim_kodu: 'BKM-006', standart_opsiyonel: 'Opsiyonel', bakim_adi: 'Elektrik Panosu', yapilacak_islem: 'Kablo bağlantıları ve sigorta kontrolü', bakim_periyodu: '3 Aylık' },
+  { row_index: 7, bakim_kodu: 'BKM-007', standart_opsiyonel: 'Standart', bakim_adi: 'Su Sertliği Testi', yapilacak_islem: 'Giriş suyu sertlik ölçümü', bakim_periyodu: 'Haftalık' },
+  { row_index: 8, bakim_kodu: 'BKM-008', standart_opsiyonel: 'Opsiyonel', bakim_adi: 'Deterjan Dozajı', yapilacak_islem: 'Dozajlama pompası kalibrasyonu', bakim_periyodu: 'Aylık' },
+  { row_index: 9, bakim_kodu: 'BKM-009', standart_opsiyonel: 'Standart', bakim_adi: 'Conta Kontrolü', yapilacak_islem: 'Kapak ve boru contaları muayenesi', bakim_periyodu: '6 Aylık' },
+  { row_index: 10, bakim_kodu: 'BKM-010', standart_opsiyonel: 'Opsiyonel', bakim_adi: 'Genel Revizyon', yapilacak_islem: 'Tüm sistem genel bakım ve revizyon', bakim_periyodu: '1 Yıllık' },
+];
+
+// ===== Config =====
+const defaultConfig = {
+  brand_name: 'Dolfin',
+  brand_subtitle: 'Endüstriyel Yıkama Makineleri',
+  page_title: 'Bakım Tablosu',
+  background_color: '#fafafa',
+  surface_color: '#ffffff',
+  text_color: '#1e293b',
+  primary_action_color: '#b91c1c',
+  secondary_action_color: '#dc2626',
+  font_family: 'Outfit',
+  font_size: 14
+};
+
+// ===== Toast =====
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type;
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ===== Navigation =====
+function navigateTo(page) {
+  document.querySelectorAll('[data-page]').forEach(btn => btn.classList.remove('active'));
+  const activeBtn = document.querySelector('[data-page="' + page + '"]');
+  if (activeBtn) activeBtn.classList.add('active');
+  document.getElementById('page-bakim').style.display = page === 'bakim' ? '' : 'none';
+  document.getElementById('page-makine-bakim').style.display = page === 'makine-bakim' ? '' : 'none';
+  lucide.createIcons();
+}
+
+// ===== Makine Bakım Verileri =====
+function getModelSeries(model) {
+  if (model.startsWith('LYM'))    return 'LYM';
+  if (model.startsWith('VDL'))    return 'VDL';
+  if (model.startsWith('KBN 1B')) return 'KBN1B';
+  if (model.startsWith('KBN 2B')) return 'KBN2B';
+  if (model.startsWith('RTS'))    return 'RTS';
+  return null;
+}
+
+const seriesOptions = {
+  LYM:   ['İnterlock Kilit', 'Yağ Sıyırıcı', 'Egzos Fanı', 'Kurutma Fanı', 'Hassas Filtre', 'Drenaj Pompası'],
+  VDL:   ['İnterlock Kilit', 'Yağ Sıyırıcı', 'Egzos Fanı', 'Kurutma Fanı', 'Hassas Filtre', 'Drenaj Pompası'],
+  KBN1B: ['İnterlock Kilit', 'Yağ Sıyırıcı', 'Egzos Fanı', 'Kurutma Fanı', 'Hassas Filtre', 'Drenaj Pompası'],
+  KBN2B: ['İnterlock Kilit', 'Yağ Sıyırıcı', 'Egzos Fanı', 'Kurutma Fanı', 'Hassas Filtre', 'Drenaj Pompası'],
+  RTS:   ['İnterlock Kilit', 'Yağ Sıyırıcı', 'Egzos Fanı', 'Kurutma Fanı', 'Hassas Filtre', 'Drenaj Pompası'],
+};
+
+const optionIcons = {
+  'İnterlock Kilit': 'lock',
+  'Yağ Sıyırıcı':   'droplets',
+  'Egzos Fanı':      'wind',
+  'Kurutma Fanı':    'fan',
+  'Hassas Filtre':   'filter',
+  'Drenaj Pompası':  'arrow-down-to-dot',
+};
+
+// Opsiyon → bakım maddeleri (geçici rastgele atanmış — sonradan tanımlanacak)
+const optionBakimMap = {
+  'İnterlock Kilit': [
+    { bakim_kodu: 'OPT-IK-001', bakim_adi: 'İnterlock Kilit Mekanizması Kontrolü', yapilacak_islem: 'Kilit mekanizması ve güvenlik sensörü testi yapılacak', bakim_periyodu: 'Haftalık' },
+    { bakim_kodu: 'OPT-IK-002', bakim_adi: 'İnterlock Şalter Testi', yapilacak_islem: 'Kapı kilit şalteri çalışma kontrolü', bakim_periyodu: 'Aylık' },
+  ],
+  'Yağ Sıyırıcı': [
+    { bakim_kodu: 'OPT-YS-001', bakim_adi: 'Yağ Sıyırıcı Bant Temizliği', yapilacak_islem: 'Sıyırıcı bant ve haznesi temizlenecek', bakim_periyodu: 'Günlük' },
+    { bakim_kodu: 'OPT-YS-002', bakim_adi: 'Yağ Sıyırıcı Motor Kontrolü', yapilacak_islem: 'Motor akım ve dönüş yönü kontrolü', bakim_periyodu: 'Haftalık' },
+  ],
+  'Egzos Fanı': [
+    { bakim_kodu: 'OPT-EF-001', bakim_adi: 'Egzos Fanı Kanat Temizliği', yapilacak_islem: 'Fan kanatları ve kanal temizliği', bakim_periyodu: 'Aylık' },
+    { bakim_kodu: 'OPT-EF-002', bakim_adi: 'Egzos Fan Yatağı Kontrolü', yapilacak_islem: 'Rulman sesi ve titreşim kontrolü', bakim_periyodu: '3 Aylık' },
+  ],
+  'Kurutma Fanı': [
+    { bakim_kodu: 'OPT-KF-001', bakim_adi: 'Kurutma Fanı Hava Filtresi', yapilacak_islem: 'Hava filtresi temizleme veya değiştirme', bakim_periyodu: 'Haftalık' },
+    { bakim_kodu: 'OPT-KF-002', bakim_adi: 'Kurutma Fan Kayışı Kontrolü', yapilacak_islem: 'Kayış gerilimi ve aşınma kontrolü', bakim_periyodu: 'Aylık' },
+  ],
+  'Hassas Filtre': [
+    { bakim_kodu: 'OPT-HF-001', bakim_adi: 'Hassas Filtre Elemanı Değişimi', yapilacak_islem: 'Filtre elemanı muayene ve gerekirse değiştirme', bakim_periyodu: 'Aylık' },
+    { bakim_kodu: 'OPT-HF-002', bakim_adi: 'Hassas Filtre Basınç Farkı Ölçümü', yapilacak_islem: 'Giriş-çıkış basınç farkı manometre ile ölçülecek', bakim_periyodu: 'Haftalık' },
+  ],
+  'Drenaj Pompası': [
+    { bakim_kodu: 'OPT-DP-001', bakim_adi: 'Drenaj Pompa Kapasitesi Testi', yapilacak_islem: 'Pompa debi ve basınç testi', bakim_periyodu: 'Aylık' },
+    { bakim_kodu: 'OPT-DP-002', bakim_adi: 'Drenaj Hattı Temizliği', yapilacak_islem: 'Drenaj borusu ve süzgeç temizleme', bakim_periyodu: 'Haftalık' },
+  ],
+};
+
+// Seri → standart bakım indeksleri (defaultRows'dan, rastgele atanmış)
+const seriesStandartIdx = {
+  LYM:   [1, 2, 4, 5, 7],
+  VDL:   [1, 2, 3, 5, 7, 9],
+  KBN1B: [1, 2, 4, 6, 7, 10],
+  KBN2B: [1, 2, 4, 6, 7, 10],
+  RTS:   [1, 3, 5, 7, 9],
+};
+
+// ===== Machine Model =====
+function onMakineModelChange() {
+  const model = document.getElementById('makine-model-select').value;
+  const section = document.getElementById('makine-opsiyonlar-section');
+  const result  = document.getElementById('makine-bakim-result');
+  result.style.display = 'none';
+  if (!model) { section.style.display = 'none'; return; }
+
+  const series = getModelSeries(model);
+  const opts   = seriesOptions[series] || [];
+  const grid   = document.getElementById('makine-opsiyonlar-grid');
+  document.getElementById('opsiyon-sec-info').textContent = opts.length + ' ' + t('mb.opsiyonMevcut');
+  grid.innerHTML = opts.map(opt => `
+    <label class="flex items-center gap-3 p-4 rounded-xl border-2 border-gray-100 hover:border-red-300 hover:bg-red-50/30 cursor-pointer transition-all select-none group" style="min-height:60px;">
+      <input type="checkbox" class="makine-opsiyon-cb" value="${opt}" style="display:none;">
+      <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 border-2 border-gray-200 group-hover:border-red-300 transition-all cb-box" style="background:#f8fafc;">
+        <i data-lucide="${optionIcons[opt] || 'settings'}" style="width:18px;height:18px;color:#94a3b8;" class="cb-icon"></i>
+      </div>
+      <span class="font-medium text-gray-700 text-sm leading-tight">${opt}</span>
+    </label>
+  `).join('');
+
+  // Checkbox tıklama görsel güncelleme
+  grid.querySelectorAll('label').forEach(lbl => {
+    lbl.addEventListener('click', () => {
+      const cb  = lbl.querySelector('.makine-opsiyon-cb');
+      const box = lbl.querySelector('.cb-box');
+      const ico = lbl.querySelector('.cb-icon');
+      const checked = !cb.checked;
+      cb.checked = checked;
+      if (checked) {
+        lbl.style.borderColor   = '#b91c1c';
+        lbl.style.background    = '#fff1f1';
+        box.style.background    = '#b91c1c';
+        box.style.borderColor   = '#b91c1c';
+        ico.style.color         = '#ffffff';
+      } else {
+        lbl.style.borderColor   = '';
+        lbl.style.background    = '';
+        box.style.background    = '#f8fafc';
+        box.style.borderColor   = '';
+        ico.style.color         = '#94a3b8';
+      }
+    });
+  });
+
+  section.style.display = '';
+  lucide.createIcons();
+}
+
+function generateBakimListesi() {
+  const model   = document.getElementById('makine-model-select').value;
+  const series  = getModelSeries(model);
+  const checked = [...document.querySelectorAll('.makine-opsiyon-cb:checked')].map(cb => cb.value);
+
+  // Standart maddeler
+  const standartIdxs = seriesStandartIdx[series] || [];
+  const standartRows = defaultRows
+    .filter(r => standartIdxs.includes(r.row_index))
+    .map(r => ({ ...r, kaynak: t('kaynak.standart'), kaynak_renk: '#16a34a' }));
+
+  // Opsiyon maddeler
+  const opsiyonRows = [];
+  checked.forEach(opt => {
+    (optionBakimMap[opt] || []).forEach(r => {
+      opsiyonRows.push({ ...r, kaynak: opt, kaynak_renk: '#b91c1c' });
+    });
+  });
+
+  const all = [...standartRows, ...opsiyonRows];
+
+  // Tabloyu güncelle
+  const tbody = document.getElementById('makine-bakim-tbody');
+  tbody.innerHTML = all.map((row, i) => `
+    <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-red-50/30 transition-colors">
+      <td class="px-4 py-2.5 text-xs text-gray-400 mono border-b border-gray-100">${i + 1}</td>
+      <td class="px-4 py-2.5 border-b border-gray-100 mono text-xs font-semibold text-gray-600">${row.bakim_kodu || ''}</td>
+      <td class="px-4 py-2.5 border-b border-gray-100 text-sm font-medium text-gray-800">${row.bakim_adi || ''}</td>
+      <td class="px-4 py-2.5 border-b border-gray-100 text-sm text-gray-600">${row.yapilacak_islem || ''}</td>
+      <td class="px-4 py-2.5 border-b border-gray-100"><span class="px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">${row.bakim_periyodu || ''}</span></td>
+      <td class="px-4 py-2.5 border-b border-gray-100"><span class="px-2 py-1 rounded-full text-xs font-semibold text-white" style="background:${row.kaynak_renk}">${row.kaynak}</span></td>
+    </tr>
+  `).join('');
+
+  document.getElementById('result-model-badge').textContent = model;
+  document.getElementById('result-count').textContent = t('resultCount', {n: all.length});
+  document.getElementById('makine-bakim-result').style.display = '';
+
+  if (checked.length === 0) showToast(t('toast.noOpsiyon'), 'info');
+  lucide.createIcons();
+}
+
+// ===== Auth State =====
+auth.onAuthStateChanged(user => {
+  isLoggedIn = !!user;
+  currentUser = user || null;
+  subscribeToData();
+  lucide.createIcons();
+});
+
+// Arka planda anonim giriş — kullanıcı hiçbir şey görmez
+auth.signInAnonymously().catch(e => console.warn('Anonim giriş:', e.message));
+
+function subscribeToData() {
+  if (unsubscribeFirestore) unsubscribeFirestore();
+  unsubscribeFirestore = db.collection('bakim_records').orderBy('row_index').onSnapshot(snapshot => {
+    allRecords = snapshot.docs.map(doc => ({ ...doc.data(), __backendId: doc.id }));
+    const maxIdx = allRecords.reduce((m, r) => Math.max(m, r.row_index || 0), 10);
+    nextRowIndex = Math.max(nextRowIndex, maxIdx + 1);
+    renderTable();
+  }, err => { console.error('Firestore dinleme hatası:', err); });
+}
+
+// ===== Login =====
+function openLoginModal() {
+  if (isLoggedIn) { logout(); return; }
+  document.getElementById('login-modal').style.display = 'flex';
+  lucide.createIcons();
+}
+function closeLoginModal() { document.getElementById('login-modal').style.display = 'none'; }
+async function signInWithGoogle() {
+  try {
+    await auth.signInWithPopup(googleProvider);
+    closeLoginModal();
+  } catch(e) {
+    showToast('Giriş başarısız: ' + (e.message || 'Bir hata oluştu'), 'error');
+  }
+}
+function logout() {
+  auth.signOut().then(() => showToast('Çıkış yapıldı.', 'info'));
+}
+
+// ===== Table Rendering =====
+function getMergedData() {
+  const saved = new Map(allRecords.map(r => [r.row_index, r]));
+  const merged = defaultRows.map(def => saved.has(def.row_index) ? { ...def, ...saved.get(def.row_index) } : { ...def });
+  // Add user-added rows
+  allRecords.filter(r => r.row_index > 10).sort((a,b) => a.row_index - b.row_index).forEach(r => merged.push(r));
+  return merged;
+}
+
+function renderTable() {
+  const tbody = document.getElementById('table-body');
+  const data = getMergedData();
+  tbody.innerHTML = '';
+  data.forEach((row, i) => {
+    const isNew = newRowIds.has(row.row_index);
+    const editable = true;
+    const tr = document.createElement('tr');
+    tr.className = (i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50') + ' hover:bg-red-50/40 transition-colors';
+    tr.dataset.rowIndex = row.row_index;
+    tr.innerHTML = `
+      <td class="px-4 py-2.5 text-xs text-gray-400 mono border-b border-gray-100">${i + 1}</td>
+      <td class="px-4 py-2.5 border-b border-gray-100"><input class="table-cell-input mono" data-field="bakim_kodu" value="${esc(row.bakim_kodu || '')}" ${editable ? '' : 'disabled'}></td>
+      <td class="px-4 py-2.5 border-b border-gray-100">
+        <select class="table-cell-select mono" data-field="standart_opsiyonel" ${editable ? '' : 'disabled'}>
+          <option value="Standart" ${(row.standart_opsiyonel||'') === 'Standart' ? 'selected' : ''}>${t('opt.standart')}</option>
+          <option value="Opsiyonel" ${(row.standart_opsiyonel||'') === 'Opsiyonel' ? 'selected' : ''}>${t('opt.opsiyonel')}</option>
+        </select>
+      </td>
+      <td class="px-4 py-2.5 border-b border-gray-100"><input class="table-cell-input mono" data-field="bakim_adi" value="${esc(getFieldText(row, 'bakim_adi'))}" ${editable ? '' : 'disabled'}></td>
+      <td class="px-4 py-2.5 border-b border-gray-100"><input class="table-cell-input mono" data-field="yapilacak_islem" value="${esc(getFieldText(row, 'yapilacak_islem'))}" ${editable ? '' : 'disabled'}></td>
+      <td class="px-4 py-2.5 border-b border-gray-100">
+        <select class="table-cell-select mono" data-field="bakim_periyodu" ${editable ? '' : 'disabled'}>
+          <option value="Günlük"  ${(row.bakim_periyodu||'') === 'Günlük'  ? 'selected' : ''}>${t('per.gunluk')}</option>
+          <option value="Haftalık" ${(row.bakim_periyodu||'') === 'Haftalık' ? 'selected' : ''}>${t('per.haftalik')}</option>
+          <option value="Aylık"    ${(row.bakim_periyodu||'') === 'Aylık'    ? 'selected' : ''}>${t('per.aylik')}</option>
+          <option value="3 Aylık"  ${(row.bakim_periyodu||'') === '3 Aylık'  ? 'selected' : ''}>${t('per.3aylik')}</option>
+          <option value="6 Aylık"  ${(row.bakim_periyodu||'') === '6 Aylık'  ? 'selected' : ''}>${t('per.6aylik')}</option>
+          <option value="1 Yıllık" ${(row.bakim_periyodu||'') === '1 Yıllık' ? 'selected' : ''}>${t('per.yillik')}</option>
+        </select>
+      </td>
+      <td class="px-4 py-2.5 border-b border-gray-100 text-center">
+        ${editable && row.row_index > 10 ? `<button onclick="deleteRow(${row.row_index})" class="delete-btn text-gray-300 hover:text-red-500 transition-colors" title="Sil"><i data-lucide="trash-2" style="width:15px;height:15px;"></i></button>` : ''}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('record-count').textContent = t('recordCount', {n: data.length});
+  lucide.createIcons();
+}
+
+function esc(s) { return s.replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+
+// ===== Add Row =====
+function addRow() {
+  if (allRecords.length >= 999) { showToast(t('toast.maxRows'), 'error'); return; }
+  const idx = nextRowIndex++;
+  newRowIds.add(idx);
+  // Temporarily add to allRecords for display
+  allRecords.push({ row_index: idx, bakim_kodu: '', standart_opsiyonel: '', bakim_adi: '', yapilacak_islem: '', bakim_periyodu: '', __backendId: '__temp_' + idx });
+  renderTable();
+  showToast(t('toast.rowAdded'), 'info');
+}
+
+// ===== Delete Row =====
+async function deleteRow(rowIndex) {
+  const rec = allRecords.find(r => r.row_index === rowIndex);
+  if (!rec) return;
+  if (rec.__backendId && rec.__backendId.startsWith('__temp_')) {
+    allRecords = allRecords.filter(r => r.row_index !== rowIndex);
+    newRowIds.delete(rowIndex);
+    renderTable();
+    return;
+  }
+  try {
+    await db.collection('bakim_records').doc(rec.__backendId).delete();
+    newRowIds.delete(rowIndex);
+    showToast(t('toast.rowDeleted'), 'success');
+  } catch(e) {
+    showToast(t('toast.deleteError') + e.message, 'error');
+  }
+}
+
+// ===== Save =====
+async function saveData() {
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+
+  const rows = [...document.querySelectorAll('#table-body tr')];
+
+  // Collect raw values from DOM
+  const rowDataList = rows.map(tr => {
+    const rowIndex = parseInt(tr.dataset.rowIndex);
+    const field = f => (tr.querySelector(`[data-field="${f}"]`) || {}).value || '';
+    return {
+      rowIndex,
+      bakim_kodu:         field('bakim_kodu'),
+      standart_opsiyonel: field('standart_opsiyonel'),
+      bakim_adi_text:     field('bakim_adi'),
+      yapilacak_text:     field('yapilacak_islem'),
+      bakim_periyodu:     field('bakim_periyodu'),
+    };
+  });
+
+  // Translate only rows where text has changed (or never been translated)
+  btn.innerHTML = '<span class="animate-pulse">&#x1F310; Çeviriliyor...</span>';
+  const translated = await Promise.all(rowDataList.map(async rd => {
+    const existing = allRecords.find(r => r.row_index === rd.rowIndex && r.__backendId && !r.__backendId.startsWith('__temp_'));
+
+    // bakim_adi
+    let bakimAdiAll;
+    if (existing && typeof existing.bakim_adi === 'object' && existing.bakim_adi[currentLang] === rd.bakim_adi_text) {
+      bakimAdiAll = existing.bakim_adi; // unchanged – reuse stored translations
+    } else {
+      bakimAdiAll = await translateToAll(rd.bakim_adi_text, currentLang);
+    }
+
+    // yapilacak_islem
+    let yapilacakAll;
+    if (existing && typeof existing.yapilacak_islem === 'object' && existing.yapilacak_islem[currentLang] === rd.yapilacak_text) {
+      yapilacakAll = existing.yapilacak_islem;
+    } else {
+      yapilacakAll = await translateToAll(rd.yapilacak_text, currentLang);
+    }
+
+    return { ...rd, bakim_adi: bakimAdiAll, yapilacak_islem: yapilacakAll };
+  }));
+
+  btn.innerHTML = '<span class="animate-pulse">' + t('saving') + '</span>';
+
+  const batch = db.batch();
+  for (const rd of translated) {
+    const obj = {
+      row_index:          rd.rowIndex,
+      bakim_kodu:         rd.bakim_kodu,
+      standart_opsiyonel: rd.standart_opsiyonel,
+      bakim_adi:          rd.bakim_adi,
+      yapilacak_islem:    rd.yapilacak_islem,
+      bakim_periyodu:     rd.bakim_periyodu,
+    };
+    const existing = allRecords.find(r => r.row_index === rd.rowIndex && r.__backendId && !r.__backendId.startsWith('__temp_'));
+    if (existing) {
+      batch.update(db.collection('bakim_records').doc(existing.__backendId), obj);
+    } else {
+      batch.set(db.collection('bakim_records').doc(), obj);
+    }
+  }
+  try {
+    await batch.commit();
+    newRowIds.clear();
+    showToast(t('toast.saved'), 'success');
+  } catch(e) {
+    showToast(t('toast.saveError') + e.message, 'error');
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i data-lucide="save" style="width:16px;height:16px;"></i> ' + t('btn.save');
+  lucide.createIcons();
+}
+
+// ===== Init =====
+subscribeToData();
+applyLang();
+lucide.createIcons();
+</script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9e162d7ea7ffc71b',t:'MTc3NDM2MDU3MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
