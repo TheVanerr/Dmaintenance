@@ -408,22 +408,11 @@ let isLoggedIn = false;
 let currentUser = null;
 let allRecords = [];
 let newRowIds = new Set();
-let nextRowIndex = 11;
+let nextRowIndex = 1;
 let unsubscribeFirestore = null;
 
-// ===== Reference Data (10 default rows) =====
-const defaultRows = [
-  { row_index: 1, bakim_kodu: 'BKM-001', standart_opsiyonel: 'Standart', bakim_adi: 'Pompa Kontrolü', yapilacak_islem: 'Pompa basınç ve sızıntı kontrolü', bakim_periyodu: 'Haftalık' },
-  { row_index: 2, bakim_kodu: 'BKM-002', standart_opsiyonel: 'Standart', bakim_adi: 'Filtre Temizliği', yapilacak_islem: 'Ana filtre sökülüp temizlenecek', bakim_periyodu: 'Günlük' },
-  { row_index: 3, bakim_kodu: 'BKM-003', standart_opsiyonel: 'Opsiyonel', bakim_adi: 'Nozul Kontrolü', yapilacak_islem: 'Nozul tıkanıklık ve sprey açısı kontrolü', bakim_periyodu: 'Aylık' },
-  { row_index: 4, bakim_kodu: 'BKM-004', standart_opsiyonel: 'Standart', bakim_adi: 'Isıtıcı Kontrolü', yapilacak_islem: 'Rezistans ve termostat test edilecek', bakim_periyodu: 'Aylık' },
-  { row_index: 5, bakim_kodu: 'BKM-005', standart_opsiyonel: 'Standart', bakim_adi: 'Konveyör Yağlama', yapilacak_islem: 'Zincir ve rulman yağlama', bakim_periyodu: 'Haftalık' },
-  { row_index: 6, bakim_kodu: 'BKM-006', standart_opsiyonel: 'Opsiyonel', bakim_adi: 'Elektrik Panosu', yapilacak_islem: 'Kablo bağlantıları ve sigorta kontrolü', bakim_periyodu: '3 Aylık' },
-  { row_index: 7, bakim_kodu: 'BKM-007', standart_opsiyonel: 'Standart', bakim_adi: 'Su Sertliği Testi', yapilacak_islem: 'Giriş suyu sertlik ölçümü', bakim_periyodu: 'Haftalık' },
-  { row_index: 8, bakim_kodu: 'BKM-008', standart_opsiyonel: 'Opsiyonel', bakim_adi: 'Deterjan Dozajı', yapilacak_islem: 'Dozajlama pompası kalibrasyonu', bakim_periyodu: 'Aylık' },
-  { row_index: 9, bakim_kodu: 'BKM-009', standart_opsiyonel: 'Standart', bakim_adi: 'Conta Kontrolü', yapilacak_islem: 'Kapak ve boru contaları muayenesi', bakim_periyodu: '6 Aylık' },
-  { row_index: 10, bakim_kodu: 'BKM-010', standart_opsiyonel: 'Opsiyonel', bakim_adi: 'Genel Revizyon', yapilacak_islem: 'Tüm sistem genel bakım ve revizyon', bakim_periyodu: '1 Yıllık' },
-];
+// ===== Reference Data =====
+const defaultRows = [];
 
 // ===== Config =====
 const defaultConfig = {
@@ -665,7 +654,7 @@ function subscribeToData() {
   if (unsubscribeFirestore) unsubscribeFirestore();
   unsubscribeFirestore = db.collection('bakim_records').orderBy('row_index').onSnapshot(snapshot => {
     allRecords = snapshot.docs.map(doc => ({ ...doc.data(), __backendId: doc.id }));
-    const maxIdx = allRecords.reduce((m, r) => Math.max(m, r.row_index || 0), 10);
+    const maxIdx = allRecords.reduce((m, r) => Math.max(m, r.row_index || 0), 0);
     nextRowIndex = Math.max(nextRowIndex, maxIdx + 1);
     renderTable();
   }, err => { console.error('Firestore dinleme hatası:', err); });
@@ -681,11 +670,7 @@ function logout() {
 
 // ===== Table Rendering =====
 function getMergedData() {
-  const saved = new Map(allRecords.map(r => [r.row_index, r]));
-  const merged = defaultRows.map(def => saved.has(def.row_index) ? { ...def, ...saved.get(def.row_index) } : { ...def });
-  // Add user-added rows
-  allRecords.filter(r => r.row_index > 10).sort((a,b) => a.row_index - b.row_index).forEach(r => merged.push(r));
-  return merged;
+  return [...allRecords].sort((a, b) => a.row_index - b.row_index);
 }
 
 function renderTable() {
@@ -720,7 +705,7 @@ function renderTable() {
         </select>
       </td>
       <td class="px-4 py-2.5 border-b border-gray-100 text-center">
-        ${editable && row.row_index > 10 ? `<button onclick="deleteRow(${row.row_index})" class="delete-btn text-gray-300 hover:text-red-500 transition-colors" title="Sil"><i data-lucide="trash-2" style="width:15px;height:15px;"></i></button>` : ''}
+        ${editable ? `<button onclick="deleteRow(${row.row_index})" class="delete-btn text-gray-300 hover:text-red-500 transition-colors" title="Sil"><i data-lucide="trash-2" style="width:15px;height:15px;"></i></button>` : ''}
       </td>
     `;
     tbody.appendChild(tr);
