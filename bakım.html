@@ -57,11 +57,48 @@
   .lang-option { display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer; font-size:14px; color:#374151; transition:background 0.15s; white-space:nowrap; width:100%; border:none; background:transparent; text-align:left; }
   .lang-option:hover { background:#fef2f2; }
   .lang-option.active { background:#fff1f1; font-weight:600; color:#b91c1c; }
+  /* Login Gate */
+  #login-gate {
+    position:fixed; inset:0; z-index:9999;
+    background: linear-gradient(145deg, #7f1d1d 0%, #991b1b 40%, #b91c1c 100%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:0;
+  }
+  #login-gate .gate-logo { text-align:center; margin-bottom:40px; }
+  #login-gate .gate-logo .brand { font-size:72px; font-weight:900; color:#fff; letter-spacing:-2px; line-height:1; }
+  #login-gate .gate-logo .sub   { font-size:15px; font-weight:500; color:rgba(255,255,255,0.7); letter-spacing:3px; text-transform:uppercase; margin-top:8px; }
+  #login-gate .gate-btn {
+    display:flex; align-items:center; justify-content:center; gap:12px;
+    background:#fff; color:#1e293b; border:none; border-radius:14px;
+    padding:15px 36px; font-size:15px; font-weight:700; cursor:pointer;
+    box-shadow:0 8px 32px rgba(0,0,0,0.25); transition:all 0.2s;
+    font-family:'Outfit',sans-serif;
+  }
+  #login-gate .gate-btn:hover { transform:translateY(-2px); box-shadow:0 12px 40px rgba(0,0,0,0.35); }
+  #login-gate .gate-error {
+    margin-top:20px; background:rgba(0,0,0,0.3); color:#fca5a5;
+    padding:10px 22px; border-radius:10px; font-size:13px; font-weight:500;
+    display:none;
+  }
+  #login-gate .gate-loading { color:rgba(255,255,255,0.6); font-size:13px; margin-top:14px; display:none; }
 </style>
   <style>body { box-sizing: border-box; }</style>
  </head>
  <body class="h-full bg-gray-50">
-  <div id="app" class="h-full w-full flex flex-col overflow-auto" style="background: #fafafa;"><!-- Navbar -->
+  <!-- Login Gate -->
+  <div id="login-gate">
+    <div class="gate-logo">
+      <div class="brand">Dolfin</div>
+      <div class="sub">Endüstriyel Yıkama Makineleri</div>
+    </div>
+    <button class="gate-btn" onclick="gateSignIn()">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:22px;height:22px;" alt="Google">
+      Kullanıcı Girişi
+    </button>
+    <div id="gate-error" class="gate-error">Bu hesapın erişim yetkisi yok.</div>
+    <div id="gate-loading" class="gate-loading">Giriş yapılıyor...</div>
+  </div>
+  <div id="app" class="h-full w-full flex flex-col overflow-auto" style="background: #fafafa; display:none;"><!-- Navbar -->
    <nav id="navbar" style="background: linear-gradient(135deg, #b91c1c, #dc2626, #991b1b);" class="w-full shadow-lg">
     <div class="max-w-screen-2xl mx-auto px-8 py-3 flex items-center justify-between">
      <div class="flex items-center gap-8">
@@ -577,16 +614,52 @@ function generateBakimListesi() {
   lucide.createIcons();
 }
 
+// ===== Auth Gate =====
+const ALLOWED_EMAIL = 'fatihgural80@gmail.com';
+
+function showGate(errorMsg) {
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-gate').style.display = 'flex';
+  document.getElementById('gate-loading').style.display = 'none';
+  const errEl = document.getElementById('gate-error');
+  if (errorMsg) { errEl.textContent = errorMsg; errEl.style.display = 'block'; }
+  else { errEl.style.display = 'none'; }
+}
+
+function hideGate() {
+  document.getElementById('login-gate').style.display = 'none';
+  document.getElementById('app').style.display = '';
+}
+
+async function gateSignIn() {
+  document.getElementById('gate-loading').style.display = 'block';
+  document.getElementById('gate-error').style.display = 'none';
+  try {
+    const result = await auth.signInWithPopup(googleProvider);
+    if (result.user.email !== ALLOWED_EMAIL) {
+      await auth.signOut();
+      showGate('Bu hesabın erişim yetkisi yok: ' + result.user.email);
+    }
+  } catch(e) {
+    showGate('Giriş başarısız: ' + (e.message || 'Bir hata oluştu'));
+  }
+}
+
 // ===== Auth State =====
 auth.onAuthStateChanged(user => {
-  isLoggedIn = !!user;
-  currentUser = user || null;
-  subscribeToData();
-  lucide.createIcons();
+  if (user && user.email === ALLOWED_EMAIL) {
+    isLoggedIn = true;
+    currentUser = user;
+    hideGate();
+    subscribeToData();
+    lucide.createIcons();
+  } else {
+    isLoggedIn = false;
+    currentUser = null;
+    showGate();
+    if (unsubscribeFirestore) { unsubscribeFirestore(); unsubscribeFirestore = null; }
+  }
 });
-
-// Arka planda anonim giriş — kullanıcı hiçbir şey görmez
-auth.signInAnonymously().catch(e => console.warn('Anonim giriş:', e.message));
 
 function subscribeToData() {
   if (unsubscribeFirestore) unsubscribeFirestore();
@@ -599,22 +672,11 @@ function subscribeToData() {
 }
 
 // ===== Login =====
-function openLoginModal() {
-  if (isLoggedIn) { logout(); return; }
-  document.getElementById('login-modal').style.display = 'flex';
-  lucide.createIcons();
-}
-function closeLoginModal() { document.getElementById('login-modal').style.display = 'none'; }
-async function signInWithGoogle() {
-  try {
-    await auth.signInWithPopup(googleProvider);
-    closeLoginModal();
-  } catch(e) {
-    showToast('Giriş başarısız: ' + (e.message || 'Bir hata oluştu'), 'error');
-  }
-}
+function openLoginModal() { if (!isLoggedIn) gateSignIn(); }
+function closeLoginModal() {}
+async function signInWithGoogle() { gateSignIn(); }
 function logout() {
-  auth.signOut().then(() => showToast('Çıkış yapıldı.', 'info'));
+  auth.signOut().then(() => { showGate(); showToast('Çıkış yapıldı.', 'info'); });
 }
 
 // ===== Table Rendering =====
